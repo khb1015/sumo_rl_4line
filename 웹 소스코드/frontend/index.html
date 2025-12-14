@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    
+    <meta charset="UTF-8">
+    <title>SUMO RL Traffic Control</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+
+    <style>
+        #simCanvas {
+            border: 1px solid black;
+            margin-top: 20px;
+        }
+        #controls button {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>4차선 교차로 RL 교통 제어</h1>
+
+    <h3>시나리오 선택</h3>
+    <div>
+        <label>시나리오:
+            <select id="scenario_select">
+                <option value="A">시나리오 A (아침↑ 점심↓ 저녁↑)</option>
+                <option value="B">시나리오 B (점심 혼잡)</option>
+                <option value="C">시나리오 C (하루종일 낮음)</option>
+                <option value="D">시나리오 D (하루종일 높음)</option>
+                <option value="custom">사용자 정의 (Custom)</option>
+            </select>
+        </label>
+    </div>
+
+    <!-- 사용자 정의 입력 영역 -->
+    <div id="custom_scenario_box" style="display:none; margin-top:10px;">
+        <h4>사용자 정의 트래픽 (spawn rate)</h4>
+
+        <!-- 시간대 0~300 -->
+        <h5>시간대 0 ~ 300</h5>
+        <label>동: <input class="custom-rate" data-period="0_300" data-node="4175105101" type="number" step="0.01" value="0.04"></label>
+        <label>남: <input class="custom-rate" data-period="0_300" data-node="8952652973" type="number" step="0.01" value="0.04"></label>
+        <label>서: <input class="custom-rate" data-period="0_300" data-node="4177516258" type="number" step="0.01" value="0.04"></label>
+        <label>북: <input class="custom-rate" data-period="0_300" data-node="5120772423" type="number" step="0.01" value="0.04"></label>
+
+        <!-- 시간대 300~600 -->
+        <h5>시간대 300 ~ 600</h5>
+        <label>동: <input class="custom-rate" data-period="300_600" data-node="4175105101" type="number" step="0.01" value="0.04"></label>
+        <label>남: <input class="custom-rate" data-period="300_600" data-node="8952652973" type="number" step="0.01" value="0.04"></label>
+        <label>서: <input class="custom-rate" data-period="300_600" data-node="4177516258" type="number" step="0.01" value="0.04"></label>
+        <label>북: <input class="custom-rate" data-period="300_600" data-node="5120772423" type="number" step="0.01" value="0.04"></label>
+
+        <!-- 시간대 600~900 -->
+        <h5>시간대 600 ~ 900</h5>
+        <label>동: <input class="custom-rate" data-period="600_900" data-node="4175105101" type="number" step="0.01" value="0.04"></label>
+        <label>남: <input class="custom-rate" data-period="600_900" data-node="8952652973" type="number" step="0.01" value="0.04"></label>
+        <label>서: <input class="custom-rate" data-period="600_900" data-node="4177516258" type="number" step="0.01" value="0.04"></label>
+        <label>북: <input class="custom-rate" data-period="600_900" data-node="5120772423" type="number" step="0.01" value="0.04"></label>
+    </div>
+
+    
+    <button id="runBtn" type="button">Run Simulation</button>
+
+    <hr>
+    <h2>총 보상</h2>
+    <div>
+        <p>Baseline 총 보상: <span id="baseline_reward">-</span></p>
+        <p>DQN 총 보상: <span id="dqn_reward">-</span></p>
+        <p>PPO 총 보상: <span id="ppo_reward">-</span></p>
+    </div>
+
+    <hr>
+
+    <h2>타임스텝별 Reward 그래프</h2>
+    <canvas id="rewardChart"></canvas>
+
+    <hr>
+
+    <h2>SUMO 시각화 (Replay)</h2>
+
+    <div id="controls">
+        <button onclick="loadReplay('baseline')">Baseline 재생</button>
+        <button onclick="loadReplay('dqn')">DQN 재생</button>
+        <button onclick="loadReplay('ppo')">PPO 재생</button>
+        <button onclick="pauseReplay()">일시정지</button>
+        <button onclick="resumeReplay()">재개</button>
+    </div>
+
+    <canvas id="simCanvas" width="800" height="800"></canvas>
+
+    <script>
+    const canvas = document.getElementById("simCanvas");
+    const ctx = canvas.getContext("2d");
+    const roadImg = new Image();
+    roadImg.src = "/static/road.png";  // 파일 경로
+
+    roadImg.onload = () => {
+        roadWidth = roadImg.width;
+        roadHeight = roadImg.height;
+
+        bufferCanvas.width = roadWidth * scaleRoad;
+        bufferCanvas.height = roadHeight * scaleRoad;
+
+        bufferCtx.drawImage(
+            roadImg,
+            0, 0,
+            bufferCanvas.width,
+            bufferCanvas.height
+        );
+    };
+
+    const bufferCanvas = document.createElement("canvas");
+    const bufferCtx = bufferCanvas.getContext("2d");
+
+    let scaleRoad = 1.0;   // 도로 이미지 전체 크기 조절
+
+
+
+    // 재생 관련 변수들
+    let replayFrames = [];
+    let replayIndex = 0;
+    let playing = false;
+    let speed = 1;   // 1x 속도
+    let worldMinX = 99999, worldMaxX = -99999;
+    let worldMinY = 99999, worldMaxY = -99999;
+    let scale = 1;
+
+    document.getElementById("scenario_select").addEventListener("change", function() {
+        const value = this.value;
+        const box = document.getElementById("custom_scenario_box");
+        
+        if (value === "custom") box.style.display = "block";
+        else box.style.display = "none";
+    });
+
+    // 모델별 파일 fetch → frames 저장
+    async function loadReplay(model) {
+        const res = await fetch(`/api/replay?model=${model}`);
+        const data = await res.json();
+
+        if (!data.frames) {
+            alert("해당 모델의 시뮬레이션 결과가 없습니다.");
+            return;
+        }
+
+        replayFrames = data.frames;
+        replayIndex = 0;
+        playing = true;
+
+        // 기존 좌표 계산 부분 그대로 유지
+        worldMinX = 99999; worldMaxX = -99999;
+        worldMinY = 99999; worldMaxY = -99999;
+
+        replayFrames.forEach(f => {
+            f.vehicles.forEach(v => {
+                if (v.x < worldMinX) worldMinX = v.x;
+                if (v.x > worldMaxX) worldMaxX = v.x;
+                if (v.y < worldMinY) worldMinY = v.y;
+                if (v.y > worldMaxY) worldMaxY = v.y;
+            });
+        });
+
+        const worldWidth = worldMaxX - worldMinX;
+        const worldHeight = worldMaxY - worldMinY;
+
+        scale = Math.min(800 / worldWidth, 800 / worldHeight);
+
+        console.log("Loaded memory replay:", model, data);
+    }
+
+
+    function pauseReplay() {
+        playing = false;
+    }
+
+    function resumeReplay() {
+        if (replayFrames.length > 0) playing = true;
+    }
+
+    // --------------------------
+    //  SUMO 시각화 (프레임 기반)
+    // --------------------------
+    function animate() {
+        if (playing && replayFrames.length > 0) {
+            const frame = replayFrames[replayIndex];
+
+            drawFrame(frame);
+
+            replayIndex += speed;
+            if (replayIndex >= replayFrames.length) {
+                replayIndex = replayFrames.length - 1;
+                playing = false;
+            }
+        }
+
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    // --------------------------
+    //  Canvas 렌더링
+    // --------------------------
+    function drawFrame(frame) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawRoads();
+
+        if (frame) {
+            drawTrafficLight(frame.tls);
+
+            frame.vehicles.forEach(v => drawVehicle(v));
+        }
+    }
+
+    // 도로 그리기 (기본 예시)
+    function drawRoads() {
+        if (!roadImg.complete || bufferCanvas.width === 0) return;
+
+        const cropSize = canvas.width; // 800
+
+        const sx = bufferCanvas.width / 2 - cropSize / 2;
+        const sy = bufferCanvas.height / 2 - cropSize / 2;
+
+        ctx.drawImage(
+            bufferCanvas,
+            sx, sy, cropSize, cropSize,
+            0, 0, cropSize, cropSize
+        );
+    }
+
+
+
+
+    function drawTrafficLight(tls_phase) {
+        ctx.fillStyle = (tls_phase % 2 === 0 ? "green" : "red");
+        ctx.beginPath();
+        ctx.arc(390, 390, 15, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawVehicle(v) {
+    ctx.save();
+
+    // 🔥 수동 위치 보정값 (마음껏 바꿔도 됨)
+    const offsetX = -190;   // → Canvas에서 오른쪽/왼쪽 이동
+    const offsetY = -50;   // → Canvas에서 위/아래 이동
+
+    // SUMO → Canvas 변환
+    const cx = (v.x - worldMinX) * scale + offsetX;
+    const cy = 800 - (v.y - worldMinY) * scale + offsetY;
+
+    ctx.translate(cx, cy);
+    ctx.rotate((v.angle - 90) * Math.PI / 180);
+
+    ctx.fillStyle = "blue";
+    ctx.fillRect(-5, -10, 10, 20);
+
+    ctx.restore();
+}
+
+
+
+    </script>
+
+</body>
+</html>

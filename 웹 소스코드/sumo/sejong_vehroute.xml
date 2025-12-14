@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-12-14 03:47:49 by Eclipse SUMO sumo Version 1.24.0
+<sumoConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
+
+    <input>
+        <net-file value="sumo\sejong_noRail.net.xml"/>
+        <route-files value="sumo\sejong.rou.xml"/>
+    </input>
+
+    <output>
+        <summary-output value="sumo\sejong_summary.xml"/>
+        <vehroute-output value="sumo\sejong_vehroute.xml"/>
+    </output>
+
+    <time>
+        <begin value="2520"/>
+        <end value="7520"/>
+        <step-length value="1.0"/>
+    </time>
+
+    <report>
+        <no-step-log value="true"/>
+    </report>
+
+    <traci_server>
+        <remote-port value="51427"/>
+    </traci_server>
+
+    <random_number>
+        <random value="false"/>
+        <seed value="42"/>
+    </random_number>
+
+    <gui_only>
+        <quit-on-end value="false"/>
+        <start value="true"/>
+        <delay value="10"/>
+    </gui_only>
+
+</sumoConfiguration>
+-->
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <vehicle id="veh_8952652973_10" type="car" depart="2530.00" arrival="2575.00">
+        <route edges="976906312#0 976906312#1 -976906316 -416819990#1 -416819990#0"/>
+    </vehicle>
+
+    <vehicle id="veh_8952652973_320" type="car" depart="2840.00" arrival="2860.00">
+        <route edges="976906312#0 976906312#1 175320504#0 175320504#1"/>
+    </vehicle>
+
+    <vehicle id="veh_8952652973_340" type="car" depart="2860.00" arrival="2903.00">
+        <route edges="976906312#0 976906312#1 -976906316 976906314#2 976906314#3"/>
+    </vehicle>
+
+    <vehicle id="veh_8952652973_360" type="car" depart="2880.00" arrival="2964.00">
+        <route edges="976906312#0 976906312#1 -976906316 -416819990#1 -416819990#0"/>
+    </vehicle>
+
+    <vehicle id="veh_8952652973_370" type="car" depart="2890.00" arrival="2965.00">
+        <route edges="976906312#0 976906312#1 -976906316 -416819990#1 -416819990#0"/>
+    </vehicle>
+
+    <vehicle id="veh_8952652973_530" type="car" depart="3050.00" arrival="3078.00">
+        <route edges="976906312#0 976906312#1 175320504#0 175320504#1"/>
+    </vehicle>
+
+    <vehicle id="veh_8952652973_570" type="car" depart="3090.00" arrival="3155.00">
+        <route edges="976906312#0 976906312#1 -976906316 -416819990#1 -416819990#0"/>
+    </vehicle>
+
+    <vehicle id="veh_8952652973_790" type="car" depart="3310.00" arrival="3381.00">
+        <route edges="976906312#0 976906312#1 -976906316 976906314#2 976906314#3"/>
+    </vehicle>
+
+</routes>
